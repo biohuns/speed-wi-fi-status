@@ -1,14 +1,12 @@
 package main
 
 import (
-	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/biohuns/speed-wi-fi-status/api"
+
 	"github.com/jackpal/gateway"
 )
 
@@ -19,46 +17,40 @@ func main() {
 	}
 	log.Printf("Detected Gateway IP: %s", ip)
 
+	client := api.NewClient(ip.String())
+
 	for {
-		res, err := http.Get(
-			fmt.Sprintf("http://%s/api/monitoring/statistics_3days", ip),
+		t, err := client.GetStatistics()
+		if err != nil {
+			panic(err)
+		}
+
+		log.Printf(
+			"Current Month: %s / %s",
+			humanReadable(t.CurrentMonthUpload+t.CurrentMonthDownload),
+			humanReadable(t.MaxLimit),
 		)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer func() {
-			if err := res.Body.Close(); err != nil {
-				log.Fatal(err)
-			}
-		}()
+		log.Printf(
+			"Until Yesterday: %s / %s",
+			humanReadable(t.UntilYesterdayUpload3Days+t.UntilYesterdayDownload3Days),
+			humanReadable(t.MaxLimit3Days),
+		)
+		log.Printf(
+			"Until Today: %s / %s",
+			humanReadable(t.UntilTodayUpload3Days+t.UntilTodayDownload3Days),
+			humanReadable(t.MaxLimit3Days),
+		)
 
-		buf, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		day3 := new(api.Statistics3Days)
-		if err := xml.Unmarshal(buf, day3); err != nil {
-			log.Fatal(err)
-		}
-
-		log.Printf("Yesterday: %s", convertToHumanReadableSizeString(
-			day3.ToYesterdayUpload+day3.ToYesterdayDownload,
-		))
-		log.Printf("Today: %s", convertToHumanReadableSizeString(
-			day3.ToTodayUpload+day3.ToTodayDownload,
-		))
-
-		time.Sleep(time.Second)
+		time.Sleep(3 * time.Second)
 	}
 }
 
-func convertToHumanReadableSizeString(size int64) string {
+func humanReadable(size int64) string {
 	s := float64(size)
 	units := []string{"Bytes", "KB", "MB", "GB", "TB", "PB"}
 	var i int
 	for i = 0; s > 1024; i++ {
 		s /= 1024
 	}
-	return fmt.Sprintf("%.2f %s", s, units[i])
+	return fmt.Sprintf("%.2f%s", s, units[i])
 }
