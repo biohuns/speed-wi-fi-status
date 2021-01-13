@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -49,6 +50,10 @@ type TrafficStats struct {
 	UntilTodayDownload3Days     int64 `json:"until_today_download_3_days"`
 	MaxLimit                    int64 `json:"max_limit"`
 	MaxLimit3Days               int64 `json:"max_limit_3_days"`
+}
+
+func (c *Client) SetHost(host string) {
+	c.host = host
 }
 
 func (c *Client) GetStatistics() (*TrafficStats, error) {
@@ -101,6 +106,10 @@ func (c *Client) fetchXML(url string, v interface{}) (err error) {
 			err = fmt.Errorf("api: failed to close response body: %w", cerr)
 		}
 	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.New("not success status code returned")
+	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
